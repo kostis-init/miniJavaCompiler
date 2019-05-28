@@ -353,6 +353,12 @@ class Visitor {
 
 class MyVisitor extends Visitor {
 
+
+
+	public boolean Print(){
+	return true ;
+    }
+
     public int visit(Tree n){
 	int nti ;
 

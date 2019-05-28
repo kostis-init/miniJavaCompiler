@@ -1,5 +1,7 @@
 @.MoreThan4_vtable = global [0 x i8*] []
 @.MT4_vtable = global [2 x i8*] [i8* bitcast (i32 (i8*,i32,i32,i32,i32,i32,i32)* @MT4.Start to i8*),i8* bitcast (i32 (i8*,i32,i32,i32,i32,i32,i32)* @MT4.Change to i8*)]
+
+
 declare i8* @calloc(i32, i32)
 declare i32 @printf(i8*, ...)
 declare void @exit(i32)

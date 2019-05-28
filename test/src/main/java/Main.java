@@ -69,7 +69,7 @@ public class Main
 				
 				//TODO: change the output file's name
 				LLVMVisitor llvmVisitor = new LLVMVisitor(symbolTable, args[i].concat(".ll"));
-				Info info = root.accept(llvmVisitor, null);
+				root.accept(llvmVisitor, null);
 				
 				
 				
@@ -77,8 +77,8 @@ public class Main
 				
 				
 				
-				//symbolTable.printOffsets();
-				//System.out.println();
+				symbolTable.printOffsets();
+				System.out.println();
 			}
 			catch(ParseException ex)
 			{

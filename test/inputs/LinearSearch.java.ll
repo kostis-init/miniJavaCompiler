@@ -1,5 +1,7 @@
 @.LinearSearch_vtable = global [0 x i8*] []
 @.LS_vtable = global [4 x i8*] [i8* bitcast (i32 (i8*,i32)* @LS.Start to i8*),i8* bitcast (i32 (i8*)* @LS.Print to i8*),i8* bitcast (i32 (i8*,i32)* @LS.Search to i8*),i8* bitcast (i32 (i8*,i32)* @LS.Init to i8*)]
+
+
 declare i8* @calloc(i32, i32)
 declare i32 @printf(i8*, ...)
 declare void @exit(i32)

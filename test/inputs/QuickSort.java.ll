@@ -1,5 +1,7 @@
 @.QuickSort_vtable = global [0 x i8*] []
 @.QS_vtable = global [4 x i8*] [i8* bitcast (i32 (i8*,i32)* @QS.Start to i8*),i8* bitcast (i32 (i8*,i32,i32)* @QS.Sort to i8*),i8* bitcast (i32 (i8*)* @QS.Print to i8*),i8* bitcast (i32 (i8*,i32)* @QS.Init to i8*)]
+
+
 declare i8* @calloc(i32, i32)
 declare i32 @printf(i8*, ...)
 declare void @exit(i32)

@@ -35,11 +35,6 @@ import syntaxtree.MainClass;
 import syntaxtree.MessageSend;
 import syntaxtree.MethodDeclaration;
 import syntaxtree.MinusExpression;
-import syntaxtree.NodeList;
-import syntaxtree.NodeListOptional;
-import syntaxtree.NodeOptional;
-import syntaxtree.NodeSequence;
-import syntaxtree.NodeToken;
 import syntaxtree.NotExpression;
 import syntaxtree.PlusExpression;
 import syntaxtree.PrimaryExpression;
@@ -54,31 +49,61 @@ import syntaxtree.VarDeclaration;
 import syntaxtree.WhileStatement;
 import visitor.GJDepthFirst;
 
-public class LLVMVisitor extends GJDepthFirst<Info, Info> {
+public class LLVMVisitor extends GJDepthFirst<String, String> {
 
-	
+
 	private PrintWriter writer;
 	private SymbolTable symbolTable;
+	private int regCounter = 0;
+	private int ifCounter = 0;
+	private int loopCounter = 0;
+	
+	
 	
 	public LLVMVisitor(SymbolTable symbolTable, String filename) throws FileNotFoundException {
 		this.writer = new PrintWriter(filename);
 		this.symbolTable = symbolTable;
 	}
-	
+
 	private void emit(String s) {
 		this.writer.print(s);
 		this.writer.flush();
 	}
+
+	private String getReg() {
+		String str = "%_" + regCounter;
+		regCounter++;
+		return str;
+	}
 	
+	private String getLabelIf() {
+		String str = "if" + ifCounter + ":";
+		ifCounter++;
+		return str;
+	}
+	
+	private String getLabelLoop() {
+		String str = "loop" + loopCounter + ":";
+		loopCounter++;
+		return str;
+	}
+	
+	
+
+	/**
+	 * f0 -> MainClass()
+	 * f1 -> ( TypeDeclaration() )*
+	 * f2 -> <EOF>
+	 */
 	//emit vTable and helper methods
-	public Info visit(Goal n, Info argu) throws Exception {
+	public String visit(Goal n, String argu) throws Exception {
 		boolean main = true;
 		for (Map.Entry<String, ClassContent> entry : symbolTable.getClassTable().entrySet()) {
 			int numFunc = entry.getValue().getFuncTable().size();
 			if(main) {numFunc = 0;}
 			emit("@."+entry.getKey()+"_vtable = global [" + numFunc + " x i8*] ["	);
 			if(main) {main = false; emit("]\n");continue;}
-			
+
 			StringBuilder str = new StringBuilder();
 			for(Map.Entry<String, FunctionContent> funcEntry : entry.getValue().getFuncTable().entrySet()) {				
 				str.append("i8* bitcast (");
@@ -109,9 +134,9 @@ public class LLVMVisitor extends GJDepthFirst<Info, Info> {
 			}
 			//delete last comma
 			str = str.deleteCharAt(str.length() - 1);
-			emit(str + "]\n\n\n");
+			emit(str + "]\n");
 		}
-		emit("declare i8* @calloc(i32, i32)\r\n" + 
+		emit("\n\ndeclare i8* @calloc(i32, i32)\r\n" + 
 				"declare i32 @printf(i8*, ...)\r\n" + 
 				"declare void @exit(i32)\r\n" + 
 				"\r\n" + 
@@ -129,272 +154,331 @@ public class LLVMVisitor extends GJDepthFirst<Info, Info> {
 				"    call void @exit(i32 1)\r\n" + 
 				"    ret void\r\n" + 
 				"}");
+
+
+		n.f0.accept(this,argu);
+		n.f1.accept(this,argu);
+
+		return null;
+	}
+
+	/**
+	 * f0 -> "class"
+	 * f1 -> Identifier()
+	 * f2 -> "{"
+	 * f3 -> "public"
+	 * f4 -> "static"
+	 * f5 -> "void"
+	 * f6 -> "main"
+	 * f7 -> "("
+	 * f8 -> "String"
+	 * f9 -> "["
+	 * f10 -> "]"
+	 * f11 -> Identifier()
+	 * f12 -> ")"
+	 * f13 -> "{"
+	 * f14 -> ( VarDeclaration() )*
+	 * f15 -> ( Statement() )*
+	 * f16 -> "}"
+	 * f17 -> "}"
+	 */
+	public String visit(MainClass n, String argu) throws Exception {
+		emit("define i32 @main() {\n");
+
+
+		emit("}\n");
+
+		return null;
+	}
+
+	@Override
+	public String visit(TypeDeclaration n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ClassDeclaration n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ClassExtendsDeclaration n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(VarDeclaration n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(MethodDeclaration n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(FormalParameterList n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(FormalParameter n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(FormalParameterTail n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(FormalParameterTerm n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(Type n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ArrayType n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(BooleanType n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(IntegerType n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(Statement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(Block n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(AssignmentStatement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ArrayAssignmentStatement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(IfStatement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(WhileStatement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(PrintStatement n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(Expression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(AndExpression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(CompareExpression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(PlusExpression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(MinusExpression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(TimesExpression n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ArrayLookup n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ArrayLength n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(MessageSend n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ExpressionList n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ExpressionTail n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	@Override
+	public String visit(ExpressionTerm n, String argu) throws Exception {
+		// TODO Auto-generated method stub
+		return super.visit(n, argu);
+	}
+
+	/**
+	    * f0 -> NotExpression()
+	    *       | PrimaryExpression()
+	    */
+	public String visit(Clause n, String argu) throws Exception {
+		 return n.f0.accept(this, argu);
+	}
+
+	/**
+	 * f0 -> IntegerLiteral()
+	 *       | TrueLiteral()
+	 *       | FalseLiteral()
+	 *       | Identifier()
+	 *       | ThisExpression()
+	 *       | ArrayAllocationExpression()
+	 *       | AllocationExpression()
+	 *       | BracketExpression()
+	 */
+	public String visit(PrimaryExpression n, String argu) throws Exception {
+		return n.f0.accept(this,argu);
+	}
+
+	/**
+	 * f0 -> <INTEGER_LITERAL>
+	 */
+	public String visit(IntegerLiteral n, String argu) throws Exception {
+		return n.f0.toString();
+	}
+
+	/**
+	 * f0 -> <IDENTIFIER>
+	 */
+	public String visit(Identifier n, String argu) throws Exception {
+		return n.f0.toString();
+	}
+
+	/**
+	 * f0 -> "new"
+	 * f1 -> "int"
+	 * f2 -> "["
+	 * f3 -> Expression()
+	 * f4 -> "]"
+	 */
+	public String visit(ArrayAllocationExpression n, String argu) throws Exception {
 		
-		return super.visit(n, argu);
+		
+		
+		
+		return n.f3.accept(this, argu);
+	}
+
+
+	/**
+	 * f0 -> "new"
+	 * f1 -> Identifier()
+	 * f2 -> "("
+	 * f3 -> ")"
+	 */
+	public String visit(AllocationExpression n, String argu) throws Exception {
+		
+		
+		
+		
+		return n.f1.accept(this, argu);
+	}
+
+	/**
+	 * f0 -> "!"
+	 * f1 -> Clause()
+	 */
+	public String visit(NotExpression n, String argu) throws Exception {
+		return n.f1.accept(this, argu);
+	}
+
+	/**
+	 * f0 -> "("
+	 * f1 -> Expression()
+	 * f2 -> ")"
+	 */
+	public String visit(BracketExpression n, String argu) throws Exception {
+		return n.f1.accept(this, argu);
 	}
 
 	@Override
-	public Info visit(MainClass n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+	public String visit(TrueLiteral n, String argu) throws Exception {
+		return "true";
 	}
 
 	@Override
-	public Info visit(TypeDeclaration n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+	public String visit(FalseLiteral n, String argu) throws Exception {
+		return "false";
 	}
 
 	@Override
-	public Info visit(ClassDeclaration n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ClassExtendsDeclaration n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(VarDeclaration n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(MethodDeclaration n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(FormalParameterList n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(FormalParameter n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(FormalParameterTail n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(FormalParameterTerm n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Type n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ArrayType n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(BooleanType n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(IntegerType n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Statement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Block n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(AssignmentStatement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ArrayAssignmentStatement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(IfStatement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(WhileStatement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(PrintStatement n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Expression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(AndExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(CompareExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(PlusExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(MinusExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(TimesExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ArrayLookup n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ArrayLength n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(MessageSend n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ExpressionList n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ExpressionTail n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ExpressionTerm n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Clause n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(PrimaryExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(IntegerLiteral n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(TrueLiteral n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(FalseLiteral n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(Identifier n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ThisExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(ArrayAllocationExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(AllocationExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(NotExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public Info visit(BracketExpression n, Info argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+	public String visit(ThisExpression n, String argu) throws Exception {
+		return "this";
 	}
 
 }
