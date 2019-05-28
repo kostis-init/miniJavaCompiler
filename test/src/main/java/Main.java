@@ -77,8 +77,8 @@ public class Main
 				
 				
 				
-				symbolTable.printOffsets();
-				System.out.println();
+				//symbolTable.printOffsets();
+				//System.out.println();
 			}
 			catch(ParseException ex)
 			{
@@ -90,7 +90,7 @@ public class Main
 			}
 			catch(Exception ex)
 			{
-				//ex.printStackTrace();
+				ex.printStackTrace();
 				System.out.println(ex.getMessage());
 				System.out.println("Error! The program did not compile!\n");
 			}

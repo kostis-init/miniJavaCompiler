@@ -57,9 +57,10 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	private int regCounter = 0;
 	private int ifCounter = 0;
 	private int loopCounter = 0;
-	
-	
-	
+
+	private ClassContent currentClassContent;
+
+
 	public LLVMVisitor(SymbolTable symbolTable, String filename) throws FileNotFoundException {
 		this.writer = new PrintWriter(filename);
 		this.symbolTable = symbolTable;
@@ -75,28 +76,38 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 		regCounter++;
 		return str;
 	}
-	
+
 	private String getLabelIf() {
 		String str = "if" + ifCounter + ":";
 		ifCounter++;
 		return str;
 	}
-	
+
 	private String getLabelLoop() {
 		String str = "loop" + loopCounter + ":";
 		loopCounter++;
 		return str;
 	}
-	
-	
+
+	private String getIType(String type) {
+		if(type.equals("int")) {
+			return "i32";
+		} else if(type.equals("boolean")) {
+			return "i1";
+		} else if(type.equals("int[]")) {
+			return "i32*";
+		} else {
+			return "i8*";
+		}
+	}
 
 	/**
 	 * f0 -> MainClass()
 	 * f1 -> ( TypeDeclaration() )*
 	 * f2 -> <EOF>
 	 */
-	//emit vTable and helper methods
 	public String visit(Goal n, String argu) throws Exception {
+		//emit vTable and helper methods
 		boolean main = true;
 		for (Map.Entry<String, ClassContent> entry : symbolTable.getClassTable().entrySet()) {
 			int numFunc = entry.getValue().getFuncTable().size();
@@ -106,29 +117,9 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 
 			StringBuilder str = new StringBuilder();
 			for(Map.Entry<String, FunctionContent> funcEntry : entry.getValue().getFuncTable().entrySet()) {				
-				str.append("i8* bitcast (");
-				String type = funcEntry.getValue().getType();
-				if(type.equals("int")) {
-					str.append("i32");
-				} else if(type.equals("boolean")) {
-					str.append("i1");
-				} else if(type.equals("int[]")) {
-					str.append("i32*");
-				} else {
-					str.append("i8*");
-				}
-				str.append(" (i8*");
+				str.append("i8* bitcast (" + getIType(funcEntry.getValue().getType()) + " (i8*");
 				for(Entry arg : funcEntry.getValue().getArguments()) {
-					String type1 = arg.getType();
-					if(type1.equals("int")) {
-						str.append(",i32");
-					} else if(type1.equals("boolean")) {
-						str.append(",i1");
-					} else if(type1.equals("int[]")) {
-						str.append(",i32*");
-					} else {
-						str.append(",i8*");
-					}
+					str.append("," + getIType(arg.getType()));
 				}
 				str.append(")* @" + entry.getKey() + "." + funcEntry.getKey() + " to i8*),");				
 			}
@@ -136,24 +127,15 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 			str = str.deleteCharAt(str.length() - 1);
 			emit(str + "]\n");
 		}
-		emit("\n\ndeclare i8* @calloc(i32, i32)\r\n" + 
-				"declare i32 @printf(i8*, ...)\r\n" + 
-				"declare void @exit(i32)\r\n" + 
-				"\r\n" + 
-				"@_cint = constant [4 x i8] c\"%d\\0a\\00\"\r\n" + 
-				"@_cOOB = constant [15 x i8] c\"Out of bounds\\0a\\00\"\r\n" + 
-				"define void @print_int(i32 %i) {\r\n" + 
-				"    %_str = bitcast [4 x i8]* @_cint to i8*\r\n" + 
-				"    call i32 (i8*, ...) @printf(i8* %_str, i32 %i)\r\n" + 
-				"    ret void\r\n" + 
-				"}\r\n" + 
-				"\r\n" + 
-				"define void @throw_oob() {\r\n" + 
-				"    %_str = bitcast [15 x i8]* @_cOOB to i8*\r\n" + 
-				"    call i32 (i8*, ...) @printf(i8* %_str)\r\n" + 
-				"    call void @exit(i32 1)\r\n" + 
-				"    ret void\r\n" + 
-				"}");
+		emit("\n\ndeclare i8* @calloc(i32, i32)\ndeclare i32 @printf(i8*, ...)\n" + 
+				"declare void @exit(i32)\n\n@_cint = constant [4 x i8] c\"%d\\0a\\00\"\n" + 
+				"@_cOOB = constant [15 x i8] c\"Out of bounds\\0a\\00\"\n" + 
+				"define void @print_int(i32 %i) {\n\t%_str = bitcast [4 x i8]* @_cint to i8*\n" + 
+				"\tcall i32 (i8*, ...) @printf(i8* %_str, i32 %i)\n" + 
+				"\tret void\n}\n\ndefine void @throw_oob() {\n" + 
+				"\t%_str = bitcast [15 x i8]* @_cOOB to i8*\n" + 
+				"\tcall i32 (i8*, ...) @printf(i8* %_str)\n" + 
+				"\tcall void @exit(i32 1)\n\tret void\n}\n\n");
 
 
 		n.f0.accept(this,argu);
@@ -185,210 +167,427 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	public String visit(MainClass n, String argu) throws Exception {
 		emit("define i32 @main() {\n");
 
+		currentClassContent = symbolTable.getMainClass();
 
-		emit("}\n");
+		n.f14.accept(this,argu);
+		n.f15.accept(this,argu);
+
+		emit("\n\tret i32 0\n}\n");
 
 		return null;
 	}
 
-	@Override
+	/**
+	 * f0 -> ClassDeclaration()
+	 *       | ClassExtendsDeclaration()
+	 */
 	public String visit(TypeDeclaration n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return n.f0.accept(this, argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> "class"
+	 * f1 -> Identifier()
+	 * f2 -> "{"
+	 * f3 -> ( VarDeclaration() )*
+	 * f4 -> ( MethodDeclaration() )*
+	 * f5 -> "}"
+	 */
 	public String visit(ClassDeclaration n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		currentClassContent = symbolTable.getClassContent(n.f1.accept(this,argu));
+		return n.f4.accept(this, argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> "class"
+	 * f1 -> Identifier()
+	 * f2 -> "extends"
+	 * f3 -> Identifier()
+	 * f4 -> "{"
+	 * f5 -> ( VarDeclaration() )*
+	 * f6 -> ( MethodDeclaration() )*
+	 * f7 -> "}"
+	 */
 	public String visit(ClassExtendsDeclaration n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		currentClassContent = symbolTable.getClassContent(n.f1.accept(this,argu));
+		return n.f6.accept(this, argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> Type()
+	 * f1 -> Identifier()
+	 * f2 -> ";"
+	 */
 	public String visit(VarDeclaration n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		emit("\t%"+n.f1.accept(this,argu) + " = alloca "
+				+ getIType(n.f0.accept(this,argu)) + "\n");
+		return null;
 	}
 
-	@Override
+	/**
+	 * f0 -> "public"
+	 * f1 -> Type()
+	 * f2 -> Identifier()
+	 * f3 -> "("
+	 * f4 -> ( FormalParameterList() )?
+	 * f5 -> ")"
+	 * f6 -> "{"
+	 * f7 -> ( VarDeclaration() )*
+	 * f8 -> ( Statement() )*
+	 * f9 -> "return"
+	 * f10 -> Expression()
+	 * f11 -> ";"
+	 * f12 -> "}"
+	 */
 	public String visit(MethodDeclaration n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+
+		String funcType = getIType(n.f1.accept(this,argu));
+		String funcName = n.f2.accept(this,argu);
+
+		emit("define " + funcType + " @" + currentClassContent.getName()
+			+ "." + funcName + "(i8* %this");
+
+		for (Entry arg: currentClassContent.getFunction(funcName).getArguments()) {
+			emit(", " + getIType(arg.getType()) + " %." + arg.getName());
+		}
+		emit(") {\n");
+
+		for (Entry arg: currentClassContent.getFunction(funcName).getArguments()) {
+			String argType = getIType(arg.getType());
+			String argName = arg.getName();
+			emit("\t%" + argName + " = alloca " + argType + "\n\tstore " + argType
+					+ " %." + argName + ", " + argType + "* %" + argName + "\n");
+		}
+
+		n.f7.accept(this,argu);
+		n.f8.accept(this,argu);
+
+		emit("\n\tret " + funcType + " " + n.f10.accept(this,argu) + "\n}\n");
+
+		return null;
 	}
 
-	@Override
-	public String visit(FormalParameterList n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(FormalParameter n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(FormalParameterTail n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(FormalParameterTerm n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
+	/**
+	 * f0 -> ArrayType()
+	 *       | BooleanType()
+	 *       | IntegerType()
+	 *       | Identifier()
+	 */
 	public String visit(Type n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return n.f0.accept(this,argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> "int"
+	 * f1 -> "["
+	 * f2 -> "]"
+	 */
 	public String visit(ArrayType n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return "int[]";
 	}
 
-	@Override
+	/**
+	 * f0 -> "boolean"
+	 */
 	public String visit(BooleanType n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return "boolean";
 	}
 
-	@Override
+	/**
+	 * f0 -> "int"
+	 */
 	public String visit(IntegerType n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return "int";
 	}
 
-	@Override
+	/**
+	 * f0 -> Block()
+	 *       | AssignmentStatement()
+	 *       | ArrayAssignmentStatement()
+	 *       | IfStatement()
+	 *       | WhileStatement()
+	 *       | PrintStatement()
+	 */
 	public String visit(Statement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		return n.f0.accept(this,argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> "{"
+	 * f1 -> ( Statement() )*
+	 * f2 -> "}"
+	 */
 	public String visit(Block n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
+		
+		
+		
+		return n.f1.accept(this,argu);
 	}
 
-	@Override
+	/**
+	 * f0 -> Identifier()
+	 * f1 -> "="
+	 * f2 -> Expression()
+	 * f3 -> ";"
+	 */
 	public String visit(AssignmentStatement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
 
-	@Override
-	public String visit(ArrayAssignmentStatement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
 
-	@Override
-	public String visit(IfStatement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
 
-	@Override
-	public String visit(WhileStatement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
 
-	@Override
-	public String visit(PrintStatement n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
 
-	@Override
-	public String visit(Expression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(AndExpression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(CompareExpression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(PlusExpression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(MinusExpression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(TimesExpression n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(ArrayLookup n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(ArrayLength n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(MessageSend n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(ExpressionList n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(ExpressionTail n, String argu) throws Exception {
-		// TODO Auto-generated method stub
-		return super.visit(n, argu);
-	}
-
-	@Override
-	public String visit(ExpressionTerm n, String argu) throws Exception {
-		// TODO Auto-generated method stub
 		return super.visit(n, argu);
 	}
 
 	/**
-	    * f0 -> NotExpression()
-	    *       | PrimaryExpression()
-	    */
+	 * f0 -> Identifier()
+	 * f1 -> "["
+	 * f2 -> Expression()
+	 * f3 -> "]"
+	 * f4 -> "="
+	 * f5 -> Expression()
+	 * f6 -> ";"
+	 */
+	public String visit(ArrayAssignmentStatement n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> "if"
+	 * f1 -> "("
+	 * f2 -> Expression()
+	 * f3 -> ")"
+	 * f4 -> Statement()
+	 * f5 -> "else"
+	 * f6 -> Statement()
+	 */
+	public String visit(IfStatement n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+
+	/**
+	 * f0 -> "while"
+	 * f1 -> "("
+	 * f2 -> Expression()
+	 * f3 -> ")"
+	 * f4 -> Statement()
+	 */
+	public String visit(WhileStatement n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> "System.out.println"
+	 * f1 -> "("
+	 * f2 -> Expression()
+	 * f3 -> ")"
+	 * f4 -> ";"
+	 */
+	public String visit(PrintStatement n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+
+	/**
+	 * f0 -> AndExpression()
+	 *       | CompareExpression()
+	 *       | PlusExpression()
+	 *       | MinusExpression()
+	 *       | TimesExpression()
+	 *       | ArrayLookup()
+	 *       | ArrayLength()
+	 *       | MessageSend()
+	 *       | Clause()
+	 */
+	public String visit(Expression n, String argu) throws Exception {
+		return n.f0.accept(this,argu);
+	}
+
+
+	/**
+	 * f0 -> Clause()
+	 * f1 -> "&&"
+	 * f2 -> Clause()
+	 */
+	public String visit(AndExpression n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "<"
+	 * f2 -> PrimaryExpression()
+	 */
+	public String visit(CompareExpression n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "+"
+	 * f2 -> PrimaryExpression()
+	 */
+	public String visit(PlusExpression n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "-"
+	 * f2 -> PrimaryExpression()
+	 */
+	public String visit(MinusExpression n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "*"
+	 * f2 -> PrimaryExpression()
+	 */
+	public String visit(TimesExpression n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "["
+	 * f2 -> PrimaryExpression()
+	 * f3 -> "]"
+	 */
+	public String visit(ArrayLookup n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "."
+	 * f2 -> "length"
+	 */
+	public String visit(ArrayLength n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> PrimaryExpression()
+	 * f1 -> "."
+	 * f2 -> Identifier()
+	 * f3 -> "("
+	 * f4 -> ( ExpressionList() )?
+	 * f5 -> ")"
+	 */
+	public String visit(MessageSend n, String argu) throws Exception {
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> Expression()
+	 * f1 -> ExpressionTail()
+	 */
+	public String visit(ExpressionList n, String argu) throws Exception {
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> ( ExpressionTerm() )*
+	 */
+	public String visit(ExpressionTail n, String argu) throws Exception {
+
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> ","
+	 * f1 -> Expression()
+	 */
+	public String visit(ExpressionTerm n, String argu) throws Exception {
+
+
+
+
+		return super.visit(n, argu);
+	}
+
+	/**
+	 * f0 -> NotExpression()
+	 *       | PrimaryExpression()
+	 */
 	public String visit(Clause n, String argu) throws Exception {
-		 return n.f0.accept(this, argu);
+
+
+
+
+		return n.f0.accept(this, argu);
 	}
 
 	/**
@@ -402,6 +601,10 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 *       | BracketExpression()
 	 */
 	public String visit(PrimaryExpression n, String argu) throws Exception {
+
+
+
+
 		return n.f0.accept(this,argu);
 	}
 
@@ -409,7 +612,25 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f0 -> <INTEGER_LITERAL>
 	 */
 	public String visit(IntegerLiteral n, String argu) throws Exception {
+
+
+
+
 		return n.f0.toString();
+	}
+
+	/**
+	 * f0 -> "true"
+	 */
+	public String visit(TrueLiteral n, String argu) throws Exception {
+		return "true";
+	}
+
+	/**
+	 * f0 -> "false"
+	 */
+	public String visit(FalseLiteral n, String argu) throws Exception {
+		return "false";
 	}
 
 	/**
@@ -420,6 +641,13 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	}
 
 	/**
+	 * f0 -> "this"
+	 */
+	public String visit(ThisExpression n, String argu) throws Exception {
+		return "this";
+	}
+
+	/**
 	 * f0 -> "new"
 	 * f1 -> "int"
 	 * f2 -> "["
@@ -427,10 +655,10 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f4 -> "]"
 	 */
 	public String visit(ArrayAllocationExpression n, String argu) throws Exception {
-		
-		
-		
-		
+
+
+
+
 		return n.f3.accept(this, argu);
 	}
 
@@ -442,10 +670,10 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f3 -> ")"
 	 */
 	public String visit(AllocationExpression n, String argu) throws Exception {
-		
-		
-		
-		
+
+
+
+
 		return n.f1.accept(this, argu);
 	}
 
@@ -454,6 +682,10 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f1 -> Clause()
 	 */
 	public String visit(NotExpression n, String argu) throws Exception {
+
+
+
+
 		return n.f1.accept(this, argu);
 	}
 
@@ -463,22 +695,12 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f2 -> ")"
 	 */
 	public String visit(BracketExpression n, String argu) throws Exception {
+
+
+
+
+
 		return n.f1.accept(this, argu);
-	}
-
-	@Override
-	public String visit(TrueLiteral n, String argu) throws Exception {
-		return "true";
-	}
-
-	@Override
-	public String visit(FalseLiteral n, String argu) throws Exception {
-		return "false";
-	}
-
-	@Override
-	public String visit(ThisExpression n, String argu) throws Exception {
-		return "this";
 	}
 
 }
