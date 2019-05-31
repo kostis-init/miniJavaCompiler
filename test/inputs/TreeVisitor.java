@@ -326,12 +326,32 @@ class Tree{
 
 }
 
+class OL{
+	
+	public int re(){
+		return 0;
+	}
+	
+	public int ok(){
+		return 0;
+	}
+	
+}
   
 
-class Visitor {
+class Visitor extends OL{
     Tree l ;
     Tree r ;
 
+	public int re(){
+		return 0;
+	}
+	
+	public int testParent(){
+		
+		return 0;
+	}
+	
     public int visit(Tree n){
 	int nti ;
 
@@ -353,6 +373,12 @@ class Visitor {
 
 class MyVisitor extends Visitor {
 
+	public int test1(){
+		
+		return 0;
+	}
+
+
     public int visit(Tree n){
 	int nti ;
 
@@ -370,5 +396,11 @@ class MyVisitor extends Visitor {
 
 	return 0;
     }
+	
+	public int test2(){
+		
+		return 0;
+	}
+
 
 }

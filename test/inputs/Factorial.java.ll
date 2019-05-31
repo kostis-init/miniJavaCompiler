@@ -22,10 +22,6 @@ define void @throw_oob() {
 }
 
 define i32 @main() {
-%_0 = call i8* @calloc(i32 1, i32 8)
-%_1 = bitcast i8* %_0 to i8***
-%_2 = getelementptr [1 x i8*], [1 x i8*]* @.Fac_vtable, i32 0, i32 0
-store i8** %_2,i8*** %_1
 
 	ret i32 0
 }
@@ -33,6 +29,7 @@ define i32 @Fac.ComputeFac(i8* %this, i32 %.num) {
 	%num = alloca i32
 	store i32 %.num, i32* %num
 	%num_aux = alloca i32
-%_0 = load i32, i32* num_aux
-	ret i32 %_0
+%_1 = load i32, i32* %num_aux
+
+	ret i32 %_1
 }

@@ -23,10 +23,6 @@ define void @throw_oob() {
 }
 
 define i32 @main() {
-%_0 = call i8* @calloc(i32 1, i32 8)
-%_1 = bitcast i8* %_0 to i8***
-%_2 = getelementptr [1 x i8*], [1 x i8*]* @.BT_vtable, i32 0, i32 0
-store i8** %_2,i8*** %_1
 
 	ret i32 0
 }
@@ -34,68 +30,79 @@ define i32 @BT.Start(i8* %this) {
 	%root = alloca i8*
 	%ntb = alloca i1
 	%nti = alloca i32
-%_0 = call i8* @calloc(i32 1, i32 38)
-%_1 = bitcast i8* %_0 to i8***
-%_2 = getelementptr [20 x i8*], [20 x i8*]* @.Tree_vtable, i32 0, i32 0
-store i8** %_2,i8*** %_1
-%_3 = load i32, i32* 0
-	ret i32 %_3
+
+	ret i32 0
 }
 define i1 @Tree.Init(i8* %this, i32 %.v_key) {
 	%v_key = alloca i32
 	store i32 %.v_key, i32* %v_key
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.SetRight(i8* %this, i8* %.rn) {
 	%rn = alloca i8*
 	store i8* %.rn, i8** %rn
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.SetLeft(i8* %this, i8* %.ln) {
 	%ln = alloca i8*
 	store i8* %.ln, i8** %ln
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i8* @Tree.GetRight(i8* %this) {
-%_0 = load i8*, i8** right
-	ret i8* %_0
+%_0 = getelementptr i8, i8* %this, i32 16
+%_1 = bitcast i8* %_0 to i8**
+%_2 = load i8*, i8** %_1
+
+	ret i8* %_2
 }
 define i8* @Tree.GetLeft(i8* %this) {
-%_0 = load i8*, i8** left
-	ret i8* %_0
+%_0 = getelementptr i8, i8* %this, i32 8
+%_1 = bitcast i8* %_0 to i8**
+%_2 = load i8*, i8** %_1
+
+	ret i8* %_2
 }
 define i32 @Tree.GetKey(i8* %this) {
-%_0 = load i32, i32* key
-	ret i32 %_0
+%_0 = getelementptr i8, i8* %this, i32 24
+%_1 = bitcast i8* %_0 to i32*
+%_2 = load i32, i32* %_1
+
+	ret i32 %_2
 }
 define i1 @Tree.SetKey(i8* %this, i32 %.v_key) {
 	%v_key = alloca i32
 	store i32 %.v_key, i32* %v_key
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.GetHas_Right(i8* %this) {
-%_0 = load i1, i1* has_right
-	ret i1 %_0
+%_0 = getelementptr i8, i8* %this, i32 29
+%_1 = bitcast i8* %_0 to i1*
+%_2 = load i1, i1* %_1
+
+	ret i1 %_2
 }
 define i1 @Tree.GetHas_Left(i8* %this) {
-%_0 = load i1, i1* has_left
-	ret i1 %_0
+%_0 = getelementptr i8, i8* %this, i32 28
+%_1 = bitcast i8* %_0 to i1*
+%_2 = load i1, i1* %_1
+
+	ret i1 %_2
 }
 define i1 @Tree.SetHas_Left(i8* %this, i1 %.val) {
 	%val = alloca i1
 	store i1 %.val, i1* %val
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.SetHas_Right(i8* %this, i1 %.val) {
 	%val = alloca i1
 	store i1 %.val, i1* %val
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.Compare(i8* %this, i32 %.num1, i32 %.num2) {
 	%num1 = alloca i32
@@ -104,8 +111,9 @@ define i1 @Tree.Compare(i8* %this, i32 %.num1, i32 %.num2) {
 	store i32 %.num2, i32* %num2
 	%ntb = alloca i1
 	%nti = alloca i32
-%_0 = xor i1 1, null%_1 = load i1, i1* ntb
-	ret i1 %_1
+%_2 = load i1, i1* %ntb
+
+	ret i1 %_2
 }
 define i1 @Tree.Insert(i8* %this, i32 %.v_key) {
 	%v_key = alloca i32
@@ -115,12 +123,8 @@ define i1 @Tree.Insert(i8* %this, i32 %.v_key) {
 	%cont = alloca i1
 	%key_aux = alloca i32
 	%current_node = alloca i8*
-%_0 = call i8* @calloc(i32 1, i32 38)
-%_1 = bitcast i8* %_0 to i8***
-%_2 = getelementptr [20 x i8*], [20 x i8*]* @.Tree_vtable, i32 0, i32 0
-store i8** %_2,i8*** %_1
-%_3 = load i1, i1* true
-	ret i1 %_3
+
+	ret i1 1
 }
 define i1 @Tree.Delete(i8* %this, i32 %.v_key) {
 	%v_key = alloca i32
@@ -132,8 +136,9 @@ define i1 @Tree.Delete(i8* %this, i32 %.v_key) {
 	%is_root = alloca i1
 	%key_aux = alloca i32
 	%ntb = alloca i1
-%_0 = xor i1 1, null%_1 = xor i1 1, null%_2 = load i1, i1* found
-	ret i1 %_2
+%_7 = load i1, i1* %found
+
+	ret i1 %_7
 }
 define i1 @Tree.Remove(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%p_node = alloca i8*
@@ -143,8 +148,8 @@ define i1 @Tree.Remove(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%ntb = alloca i1
 	%auxkey1 = alloca i32
 	%auxkey2 = alloca i32
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.RemoveRight(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%p_node = alloca i8*
@@ -152,8 +157,8 @@ define i1 @Tree.RemoveRight(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%c_node = alloca i8*
 	store i8* %.c_node, i8** %c_node
 	%ntb = alloca i1
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.RemoveLeft(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%p_node = alloca i8*
@@ -161,8 +166,8 @@ define i1 @Tree.RemoveLeft(i8* %this, i8* %.p_node, i8* %.c_node) {
 	%c_node = alloca i8*
 	store i8* %.c_node, i8** %c_node
 	%ntb = alloca i1
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i32 @Tree.Search(i8* %this, i32 %.v_key) {
 	%v_key = alloca i32
@@ -171,19 +176,20 @@ define i32 @Tree.Search(i8* %this, i32 %.v_key) {
 	%ifound = alloca i32
 	%current_node = alloca i8*
 	%key_aux = alloca i32
-%_0 = load i32, i32* ifound
-	ret i32 %_0
+%_4 = load i32, i32* %ifound
+
+	ret i32 %_4
 }
 define i1 @Tree.Print(i8* %this) {
 	%current_node = alloca i8*
 	%ntb = alloca i1
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }
 define i1 @Tree.RecPrint(i8* %this, i8* %.node) {
 	%node = alloca i8*
 	store i8* %.node, i8** %node
 	%ntb = alloca i1
-%_0 = load i1, i1* true
-	ret i1 %_0
+
+	ret i1 1
 }

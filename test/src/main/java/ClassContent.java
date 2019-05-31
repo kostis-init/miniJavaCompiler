@@ -59,6 +59,15 @@ public class ClassContent extends Content{
         return funcTable;
     }
     
+    public Map<String, FunctionContent> getSuperFuncTable() {
+    	if (this.superClass == null) return funcTable;
+    	Map<String, FunctionContent> superMap = new LinkedHashMap<>(this.superClass.getSuperFuncTable());
+        superMap.putAll(funcTable);
+        return superMap;
+    }
+    
+    
+    
     public boolean hasSuperClass(String name){
     	
     	if(this.superClass == null)
@@ -171,6 +180,17 @@ public class ClassContent extends Content{
             System.out.println("End of function: " + entry.getKey() + "\n");
         }
     }
+
+	public ClassContent setReal(FunctionContent functionContent) {
+		
+		if(this.funcTable.containsKey(functionContent.getName())) {
+			return this;
+		}
+		if(this.superClass == null) {
+			return null;
+		}
+		return this.superClass.setReal(functionContent);
+	}
     
     
 }

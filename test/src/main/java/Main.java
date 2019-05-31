@@ -75,9 +75,9 @@ public class Main
 				
 				System.out.println("**********************\nCompilation succesful!\n**********************\n");
 				
-				
-				
 				//symbolTable.printOffsets();
+				
+				
 				//System.out.println();
 			}
 			catch(ParseException ex)
