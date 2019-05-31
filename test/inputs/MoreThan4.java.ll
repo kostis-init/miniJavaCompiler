@@ -22,6 +22,17 @@ define void @throw_oob() {
 }
 
 define i32 @main() {
+%_7 = call i8* @calloc(i32 1, i32 8)
+%_8 = bitcast i8* %_7 to i8***
+%_9 = getelementptr [2 x i8*], [2 x i8*]* @.MT4_vtable, i32 0, i32 0
+store i8** %_9,i8*** %_8
+%_0 = load i8*, i8** %_7
+%_1 = bitcast i8* %_0 to i8***
+%_2 = load i8**, i8*** %_1
+%_3 = getelementptr i8*, i8** %_2, i32 0
+%_4 = load i8*, i8** %_3
+%_5 = bitcast i8* %_4 to i32 (i8*,i32,i32,i32,i32,i32,i32)*
+%_6 = call i32 %_5(i8* %_0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6)
 
 	ret i32 0
 }
@@ -39,8 +50,14 @@ define i32 @MT4.Start(i8* %this, i32 %.p1, i32 %.p2, i32 %.p3, i32 %.p4, i32 %.p
 	%p6 = alloca i32
 	store i32 %.p6, i32* %p6
 	%aux = alloca i32
-
-	ret i32 aux
+%_1 = bitcast i8* %this to i8***
+%_2 = load i8**, i8*** %_1
+%_3 = getelementptr i8*, i8** %_2, i32 1
+%_4 = load i8*, i8** %_3
+%_5 = bitcast i8* %_4 to i32 (i8*,i32,i32,i32,i32,i32,i32)*
+%_6 = call i32 %_5(i8* %this, i32 %p6, i32 %p5, i32 %p4, i32 %p3, i32 %p2, i32 %p1)
+%_7 = load i32, i32* %aux
+	ret i32 %_7
 }
 define i32 @MT4.Change(i8* %this, i32 %.p1, i32 %.p2, i32 %.p3, i32 %.p4, i32 %.p5, i32 %.p6) {
 	%p1 = alloca i32
@@ -55,6 +72,6 @@ define i32 @MT4.Change(i8* %this, i32 %.p1, i32 %.p2, i32 %.p3, i32 %.p4, i32 %.
 	store i32 %.p5, i32* %p5
 	%p6 = alloca i32
 	store i32 %.p6, i32* %p6
-
-	ret i32 0
+%_0 = load i32, i32* 0
+	ret i32 %_0
 }

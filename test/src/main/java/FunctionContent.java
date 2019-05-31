@@ -8,10 +8,23 @@ public class FunctionContent extends Content{
     private List<Entry> arguments;
     private List<Entry> variables;
     private int offset = 0;
+    private ClassContent realClass;
     
-    public FunctionContent(String name, String type) {
+    public ClassContent getRealClass() {
+		return realClass;
+	}
+
+    
+	public void setRealClass(ClassContent currentClass) {
+		
+		this.realClass = currentClass.setReal(this);
+		
+	}
+
+	public FunctionContent(String name, String type, ClassContent clazz) {
         this.name = name;
         this.type = type;
+        this.realClass = clazz;
         this.variables = new ArrayList<>();
         this.arguments = new ArrayList<>();
     }

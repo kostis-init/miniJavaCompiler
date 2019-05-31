@@ -1,6 +1,10 @@
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Stack;
 
 import syntaxtree.AllocationExpression;
 import syntaxtree.AndExpression;
@@ -48,20 +52,24 @@ import visitor.GJDepthFirst;
 public class LLVMVisitor extends GJDepthFirst<String, String> {
 
 
+	private Vtable vtable;
+	
 	private PrintWriter writer;
 	private SymbolTable symbolTable;
 	private int regCounter = 0;
 	private int ifCounter = 0;
 	private int loopCounter = 0;
 	private int arrAllocCounter = 0;
-	
+
 	private ClassContent currentClassContent;
+	private FunctionContent currentFunctionContent;
 
 
 	public LLVMVisitor(SymbolTable symbolTable, String filename) throws FileNotFoundException {
 		this.writer = new PrintWriter(filename);
 		this.symbolTable = symbolTable;
 		resetCounters();
+		this.vtable = new Vtable();
 	}
 
 	private void emit(String s) {
@@ -92,14 +100,14 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 		arrAllocCounter++;
 		return str;
 	}
-	
+
 	private void resetCounters() {
 		regCounter = 0;
 		ifCounter = 0;
 		loopCounter = 0;
 		arrAllocCounter = 0;
 	}
-	
+
 	private String getIType(String type) {
 		if(type.equals("int")) {
 			return "i32";
@@ -111,40 +119,54 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 			return "i8*";
 		}
 	}
-	
+
 	private int getClassSize(String name) {
 		return 8 + symbolTable.getClassContent(name).getCurrentOffset();
 	}
 
-	/**
-	 * f0 -> MainClass()
-	 * f1 -> ( TypeDeclaration() )*
-	 * f2 -> <EOF>
-	 */
-	public String visit(Goal n, String argu) throws Exception {
-		
-		//TODO: maybe we must emit the superclass' functions too
-		
-		//emit vTable and helper methods
-		boolean main = true;
+	
+	private void createVtable() {
+		Map<ClassContent,List<FunctionContent>> map = new LinkedHashMap<>();
 		for (Map.Entry<String, ClassContent> entry : symbolTable.getClassTable().entrySet()) {
-			int numFunc = entry.getValue().getFuncTable().size();
+			ClassContent currentClass = entry.getValue();
+			List<FunctionContent> funcs = new ArrayList<>();
+			
+			for(Map.Entry<String, FunctionContent> funcEntry : currentClass.getSuperFuncTable().entrySet()) {
+				FunctionContent curFunc = funcEntry.getValue();
+				curFunc.setRealClass(currentClass);
+				//System.out.println(currentClass.getName() + "#" + curFunc.getRealClass().getName() + "#" + curFunc.getName()+ "#" + curFunc.getOffset());
+				funcs.add(curFunc);
+			}
+			
+			map.put(currentClass, funcs);
+		}
+		this.vtable.setMap(map);
+	}
+	
+	private void emitVtable() {
+		boolean main = true;
+		for (Map.Entry<ClassContent,List<FunctionContent>> entry : this.vtable.getMap().entrySet()) {
+			int numFunc = entry.getKey().getSuperFuncTable().size();
 			if(main) {numFunc = 0;}
-			emit("@."+entry.getKey()+"_vtable = global [" + numFunc + " x i8*] ["	);
+			emit("@."+entry.getKey().getName()+"_vtable = global [" + numFunc + " x i8*] ["	);
 			if(main) {main = false; emit("]\n");continue;}
 
 			StringBuilder str = new StringBuilder();
-			for(Map.Entry<String, FunctionContent> funcEntry : entry.getValue().getFuncTable().entrySet()) {				
-				str.append("i8* bitcast (" + getIType(funcEntry.getValue().getType()) + " (i8*");
-				for(Entry arg : funcEntry.getValue().getArguments()) {
+			for(FunctionContent func: entry.getValue()) {
+				str.append("i8* bitcast (" + getIType(func.getType()) + " (i8*");
+				for(Entry arg : func.getArguments()) {
 					str.append("," + getIType(arg.getType()));
 				}
-				str.append(")* @" + entry.getKey() + "." + funcEntry.getKey() + " to i8*),");				
+				str.append(")* @" + func.getRealClass().getName() + "." + func.getName() + " to i8*),");				
 			}
 			//delete last comma
-			str = str.deleteCharAt(str.length() - 1);
+			if(str.charAt(str.length() - 1) == ',')
+				str = str.deleteCharAt(str.length() - 1);
 			emit(str + "]\n");
 		}
+	}
+	
+	private void emitIntro() {
 		emit("\n\ndeclare i8* @calloc(i32, i32)\ndeclare i32 @printf(i8*, ...)\n" + 
 				"declare void @exit(i32)\n\n@_cint = constant [4 x i8] c\"%d\\0a\\00\"\n" + 
 				"@_cOOB = constant [15 x i8] c\"Out of bounds\\0a\\00\"\n" + 
@@ -154,8 +176,19 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 				"\t%_str = bitcast [15 x i8]* @_cOOB to i8*\n" + 
 				"\tcall i32 (i8*, ...) @printf(i8* %_str)\n" + 
 				"\tcall void @exit(i32 1)\n\tret void\n}\n\n");
-
-
+	}
+	
+	/**
+	 * f0 -> MainClass()
+	 * f1 -> ( TypeDeclaration() )*
+	 * f2 -> <EOF>
+	 */
+	public String visit(Goal n, String argu) throws Exception {
+		
+		this.createVtable();
+		this.emitVtable();
+		this.emitIntro();
+		
 		n.f0.accept(this,argu);
 		n.f1.accept(this,argu);
 
@@ -183,6 +216,9 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f17 -> "}"
 	 */
 	public String visit(MainClass n, String argu) throws Exception {
+		this.currentClassContent = symbolTable.getMainClass();
+		this.currentFunctionContent = this.currentClassContent.getFunction("main");
+
 		emit("define i32 @main() {\n");
 
 		currentClassContent = symbolTable.getMainClass();
@@ -212,7 +248,7 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f5 -> "}"
 	 */
 	public String visit(ClassDeclaration n, String argu) throws Exception {
-		currentClassContent = symbolTable.getClassContent(n.f1.accept(this,argu));
+		currentClassContent = symbolTable.getClassContent(n.f1.f0.toString());
 		return n.f4.accept(this, argu);
 	}
 
@@ -227,7 +263,7 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f7 -> "}"
 	 */
 	public String visit(ClassExtendsDeclaration n, String argu) throws Exception {
-		currentClassContent = symbolTable.getClassContent(n.f1.accept(this,argu));
+		currentClassContent = symbolTable.getClassContent(n.f1.f0.toString());
 		return n.f6.accept(this, argu);
 	}
 
@@ -237,7 +273,7 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f2 -> ";"
 	 */
 	public String visit(VarDeclaration n, String argu) throws Exception {
-		emit("\t%"+n.f1.accept(this,argu) + " = alloca "
+		emit("\t"+n.f1.accept(this,argu) + " = alloca "
 				+ getIType(n.f0.accept(this,argu)) + "\n");
 		return null;
 	}
@@ -259,13 +295,14 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 */
 	public String visit(MethodDeclaration n, String argu) throws Exception {
 
+		this.currentFunctionContent = currentClassContent.getFunction(n.f2.f0.toString());
 		resetCounters();
-		
+
 		String funcType = getIType(n.f1.accept(this,argu));
-		String funcName = n.f2.accept(this,argu);
+		String funcName = n.f2.f0.toString();
 
 		emit("define " + funcType + " @" + currentClassContent.getName()
-			+ "." + funcName + "(i8* %this");
+		+ "." + funcName + "(i8* %this");
 
 		for (Entry arg: currentClassContent.getFunction(funcName).getArguments()) {
 			emit(", " + getIType(arg.getType()) + " %." + arg.getName());
@@ -282,13 +319,15 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 		n.f7.accept(this,argu);
 		n.f8.accept(this,argu);
 
-		
-		
-		// TODO: Fix the return !!!!!!!!!!!!!!
+
+
+		// TODO: Fix the return !!!!!!!!!!!!!! BIG ERROR THE RETURN !!!!!
 		String reg = getReg();
 		emit(reg + " = load " + funcType + ", " + funcType + "* " + n.f10.accept(this,argu));
 		emit("\n\tret " + funcType + " " + reg + "\n}\n");
 
+		
+		
 		return null;
 	}
 
@@ -299,7 +338,7 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 *       | Identifier()
 	 */
 	public String visit(Type n, String argu) throws Exception {
-		return n.f0.accept(this,argu);
+		return n.f0.accept(this,"caution");
 	}
 
 	/**
@@ -355,7 +394,14 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	public String visit(AssignmentStatement n, String argu) throws Exception {
 
 
+		String reg1 = n.f0.accept(this,argu);
+		String reg2 = n.f2.accept(this,argu);
 
+		
+		
+		
+		
+		
 
 
 		return super.visit(n, argu);
@@ -540,12 +586,13 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f2 -> "length"
 	 */
 	public String visit(ArrayLength n, String argu) throws Exception {
-
-
-
-
-
-		return super.visit(n, argu);
+		String reg = n.f0.accept(this,argu);
+		String reg1 = getReg();
+		emit(reg1 + " = load i32, i32* " + reg + "\n");
+		
+		//TODO: maybe store reg1 to return a pointer
+		
+		return reg1;
 	}
 
 	/**
@@ -556,12 +603,54 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f4 -> ( ExpressionList() )?
 	 * f5 -> ")"
 	 */
+	
+	//used for parameters
+	private Stack<String> typeStack = new Stack<>();
+	private Stack<String> bufferStack = new Stack<>();
+	
 	public String visit(MessageSend n, String argu) throws Exception {
 
+		//calls new visitor, to find the type of the class, that the primary expression represents.
+		String clazz = n.f0.accept(new GetClassContentVisitor(symbolTable, currentClassContent, currentFunctionContent));
+		ClassContent targetClass = symbolTable.getClassContent(clazz);
 
+		FunctionContent func = targetClass.getFunctionSuper(n.f2.f0.toString());
 
+		String reg1 = getReg();
+		String reg2 = getReg();
+		String reg3 = getReg();
+		String reg4 = getReg();
+		String reg5 = getReg();
+		String reg6 = getReg();
+		String reg7 = getReg();
+		String primary = n.f0.accept(this,argu);
+		
+		if(!primary.equals("%this")) {
+			emit(reg1 + " = load i8*, i8** " + primary + "\n");
+		}
+		else {
+			reg1 = "%this";
+		}
+		
+		
+		emit(reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
+			+reg3 + " = load i8**, i8*** " + reg2 + "\n"
+			+reg4 + " = getelementptr i8*, i8** " + reg3 + ", i32 " + func.getOffset()/8 + "\n"
+			+reg5 + " = load i8*, i8** " + reg4 + "\n"
+			+reg6 + " = bitcast i8* " + reg5 + " to " + this.getIType(func.getType()) + " (i8*");
+		String types="";
+		for(Entry arg: func.getArguments()) {
+			types += this.getIType(arg.getType()) + " ";
+			emit(","+this.getIType(arg.getType()));
+		}
+		emit(")*\n");
+		typeStack.push(types);
+		String buffer = n.f4.accept(this,argu);
+		if (buffer == null) buffer = "";
+		typeStack.pop();
+		emit(reg7 + " = call " + this.getIType(func.getType()) + " " + reg6 + "(i8* " + reg1 + buffer + ")\n");
 
-		return super.visit(n, argu);
+		return reg7;
 	}
 
 	/**
@@ -569,23 +658,23 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f1 -> ExpressionTail()
 	 */
 	public String visit(ExpressionList n, String argu) throws Exception {
-
-
-
-
-		return super.visit(n, argu);
+		String types = typeStack.pop();
+		int i = types.indexOf(' ');
+		String word = types.substring(0, i);
+		types = types.substring(i + 1);
+		typeStack.push(types);
+		String reg = n.f0.accept(this,argu);
+		String buffer = ", " + word + " " +reg;
+		bufferStack.push(buffer);
+		n.f1.accept(this,argu);
+		return bufferStack.pop();
 	}
 
 	/**
 	 * f0 -> ( ExpressionTerm() )*
 	 */
 	public String visit(ExpressionTail n, String argu) throws Exception {
-
-
-
-
-
-		return super.visit(n, argu);
+		return n.f0.accept(this,argu);
 	}
 
 	/**
@@ -593,11 +682,20 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f1 -> Expression()
 	 */
 	public String visit(ExpressionTerm n, String argu) throws Exception {
+		
+		String types = typeStack.pop();
+		int i = types.indexOf(' ');
+		String word = types.substring(0, i);
+		types = types.substring(i + 1);
+		typeStack.push(types);
+		String reg = n.f1.accept(this,null);
 
+		String buffer = ", " + word + " " +reg;
 
-
-
-		return super.visit(n, argu);
+		String prevBuffer = bufferStack.pop();
+		bufferStack.push(prevBuffer + buffer);
+		
+		return null;
 	}
 
 	/**
@@ -633,21 +731,38 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 	 * f0 -> "true"
 	 */
 	public String visit(TrueLiteral n, String argu) throws Exception {
-		return "true";
+		return "1";
 	}
 
 	/**
 	 * f0 -> "false"
 	 */
 	public String visit(FalseLiteral n, String argu) throws Exception {
-		return "false";
+		return "0";
 	}
 
 	/**
 	 * f0 -> <IDENTIFIER>
 	 */
 	public String visit(Identifier n, String argu) throws Exception {
-		return n.f0.toString();
+		
+		String name = n.f0.toString();
+		String reg = "%" + name;
+		
+		if(argu!=null && argu.equals("caution")) {
+			return reg;
+		}
+		
+		if(this.currentFunctionContent.getVariableEntry(name) == null) {
+			//then it is a class variable, search it
+			String reg1 = getReg();
+			String reg2 = getReg();
+			int offset = this.currentClassContent.getVariableEntry(name).getOffset() + 8;
+			emit(reg1 + " = getelementptr i8, i8* %this, i32 " + offset + "\n"
+				+reg2 + " = bitcast i8* " + reg1 + " to " + this.getIType(this.currentClassContent.getVariableEntry(name).getType()) + "*\n");
+			reg = reg2;
+		}
+		return reg;
 	}
 
 	/**
@@ -672,15 +787,15 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 		String reg5 = getReg();
 		String arrAlloc1 = getArrAlloc();
 		String arrAlloc2 = getArrAlloc();
-		
+
 		emit(reg1 + " = load i32, i32* " + n.f3.accept(this,argu) + "\n"
-			+reg2 + " = icmp slt i32 " + reg1 + ", 0\n"
-			+"br i1 " + reg2 + ", label %" + arrAlloc1 + ", label %" + arrAlloc2 + "\n\n"
-			+arrAlloc1 + ":\ncall void @throw_oob()\nbr label %" + arrAlloc2 + "\n\n"
-			+arrAlloc2 + ":\n" + reg3 + " = add i32 " + reg1 + ", 1\n"
-			+reg4 + " = call i8* @calloc(i32 4, i32 " + reg3 + ")\n"
-			+reg5 + " = bitcast i8* " + reg4 + " to i32*\n"
-			+"store i32 " + reg1 + ", i32* " + reg5 + "\n");
+				+reg2 + " = icmp slt i32 " + reg1 + ", 0\n"
+				+"br i1 " + reg2 + ", label %" + arrAlloc1 + ", label %" + arrAlloc2 + "\n\n"
+				+arrAlloc1 + ":\ncall void @throw_oob()\nbr label %" + arrAlloc2 + "\n\n"
+				+arrAlloc2 + ":\n" + reg3 + " = add i32 " + reg1 + ", 1\n"
+				+reg4 + " = call i8* @calloc(i32 4, i32 " + reg3 + ")\n"
+				+reg5 + " = bitcast i8* " + reg4 + " to i32*\n"
+				+"store i32 " + reg1 + ", i32* " + reg5 + "\n");
 
 		return reg5;
 	}
@@ -695,15 +810,15 @@ public class LLVMVisitor extends GJDepthFirst<String, String> {
 		String reg1 = getReg();
 		String reg2 = getReg();
 		String reg3 = getReg();
-		String identifier = n.f1.accept(this, argu);
+		String identifier = n.f1.f0.toString();
 		int numOfFuncs = symbolTable.getClassContent(identifier).getFuncTable().size();
-		
+
 		emit(reg1 + " = call i8* @calloc(i32 1, i32 " + getClassSize(identifier) + ")\n"
-			+reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
-			+reg3 + " = getelementptr [" + numOfFuncs + " x i8*], [" + numOfFuncs
-			+" x i8*]* @." + identifier + "_vtable, i32 0, i32 0\n"
-			+"store i8** " + reg3 + ",i8*** " + reg2 + "\n");
-		
+				+reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
+				+reg3 + " = getelementptr [" + numOfFuncs + " x i8*], [" + numOfFuncs
+				+" x i8*]* @." + identifier + "_vtable, i32 0, i32 0\n"
+				+"store i8** " + reg3 + ",i8*** " + reg2 + "\n");
+
 		return reg1;
 	}
 

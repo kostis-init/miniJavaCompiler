@@ -41,7 +41,7 @@ public class FillSymbolTableVisitor extends GJNoArguDepthFirst<Object> {
       Object _ret=null;
    
 
-      FunctionContent functionContent = new FunctionContent("main","void");
+      FunctionContent functionContent = new FunctionContent("main","void",null);
       String argName = n.f11.accept(this).toString();
       functionContent.addArgument(new Entry(argName,"String[]"));
       this.currentContent = functionContent;
@@ -173,7 +173,7 @@ public class FillSymbolTableVisitor extends GJNoArguDepthFirst<Object> {
    
       String funcName = n.f2.accept(this).toString();
       String type = n.f1.accept(this).toString();
-      FunctionContent functionContent = new FunctionContent(funcName,type);
+      FunctionContent functionContent = new FunctionContent(funcName,type,classContentKeeper);
 
       this.currentContent = functionContent;
       //visit the parameter list to fill the functionContent arguments
@@ -192,7 +192,10 @@ public class FillSymbolTableVisitor extends GJNoArguDepthFirst<Object> {
 	      int offset = classContentKeeper.getCurrentFuncOffset();
 	      functionContent.setOffset(offset);
 	      classContentKeeper.setFuncOffset(offset + 8);
-	  }    
+	  }
+	  else {
+		  functionContent.setOffset(classContentKeeper.getFunctionSuper(funcName).getOffset());
+	  }
       //add the function content to the class content
       classContentKeeper.addFunction(funcName,functionContent);
       

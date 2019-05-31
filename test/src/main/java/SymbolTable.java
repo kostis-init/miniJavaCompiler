@@ -51,7 +51,7 @@ public class SymbolTable
 			System.out.println("---Methods---");
 			for (Map.Entry<String, FunctionContent> funcEntry : entry.getValue().getFuncTable().entrySet()) {
 				//if(entry.getValue().inSuperFuncTable(funcEntry.getValue().getName()) == null ) {
-					System.out.println(entry.getKey() + "." + funcEntry.getValue().getName() + ": " + funcEntry.getValue().getOffset());
+					System.out.println(entry.getKey() + "." + funcEntry.getValue().getName() + ": " + funcEntry.getValue().getOffset() + "@@@" + funcEntry.getValue().getRealClass().getName());
 				//}
 			}
 			System.out.println();
