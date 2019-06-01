@@ -145,14 +145,11 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		for (Map.Entry<String, ClassContent> entry : symbolTable.getClassTable().entrySet()) {
 			ClassContent currentClass = entry.getValue();
 			List<FunctionContent> funcs = new ArrayList<>();
-			
 			for(Map.Entry<String, FunctionContent> funcEntry : currentClass.getSuperFuncTable().entrySet()) {
 				FunctionContent curFunc = funcEntry.getValue();
 				curFunc.setRealClass(currentClass);
-				//System.out.println(currentClass.getName() + "#" + curFunc.getRealClass().getName() + "#" + curFunc.getName()+ "#" + curFunc.getOffset());
 				funcs.add(curFunc);
 			}
-			
 			map.put(currentClass, funcs);
 		}
 		this.vtable.setMap(map);

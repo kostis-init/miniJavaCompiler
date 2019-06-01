@@ -67,18 +67,16 @@ public class Main
 				CheckSemanticsVisitor check = new CheckSemanticsVisitor(symbolTable);
 				root.accept(check);
 				
+				
+				/**
+				 * Step 4: Produce LLVM code
+				 */
 				//TODO: change the output file's name
 				LLVMVisitor llvmVisitor = new LLVMVisitor(symbolTable, args[i].concat(".ll"));
 				root.accept(llvmVisitor, null);
 				
 				
-				
 				System.out.println("**********************\nCompilation succesful!\n**********************\n");
-				
-				//symbolTable.printOffsets();
-				
-				
-				//System.out.println();
 			}
 			catch(ParseException ex)
 			{
