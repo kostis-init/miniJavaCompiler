@@ -1,38 +1,12 @@
-import java.util.Stack;
-
 import syntaxtree.AllocationExpression;
-import syntaxtree.AndExpression;
-import syntaxtree.ArrayAllocationExpression;
-import syntaxtree.ArrayAssignmentStatement;
-import syntaxtree.ArrayLength;
-import syntaxtree.ArrayLookup;
-import syntaxtree.AssignmentStatement;
-import syntaxtree.Block;
 import syntaxtree.BracketExpression;
-import syntaxtree.ClassDeclaration;
-import syntaxtree.ClassExtendsDeclaration;
 import syntaxtree.Clause;
-import syntaxtree.CompareExpression;
 import syntaxtree.Expression;
-import syntaxtree.ExpressionList;
-import syntaxtree.ExpressionTail;
-import syntaxtree.ExpressionTerm;
-import syntaxtree.FalseLiteral;
 import syntaxtree.Identifier;
-import syntaxtree.IfStatement;
-import syntaxtree.IntegerLiteral;
-import syntaxtree.MainClass;
 import syntaxtree.MessageSend;
-import syntaxtree.MethodDeclaration;
-import syntaxtree.MinusExpression;
 import syntaxtree.NotExpression;
-import syntaxtree.PlusExpression;
 import syntaxtree.PrimaryExpression;
-import syntaxtree.PrintStatement;
 import syntaxtree.ThisExpression;
-import syntaxtree.TimesExpression;
-import syntaxtree.TrueLiteral;
-import syntaxtree.WhileStatement;
 import visitor.GJNoArguDepthFirst;
 
 public class GetClassContentVisitor extends GJNoArguDepthFirst<String> {

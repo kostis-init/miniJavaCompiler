@@ -50,8 +50,6 @@ import syntaxtree.WhileStatement;
 import visitor.GJDepthFirst;
 
 public class LLVMVisitor extends GJDepthFirst<Entry, String> {
-
-
 	private Vtable vtable;
 	
 	private PrintWriter writer;
@@ -61,7 +59,8 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	private int loopCounter = 0;
 	private int arrAllocCounter = 0;
 	private int oobCounter = 0;
-
+	private int andCounter = 0;
+	
 	private ClassContent currentClassContent;
 	private FunctionContent currentFunctionContent;
 
@@ -107,6 +106,13 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		oobCounter++;
 		return str;
 	}
+	
+	private String getAnd() {
+		String str = "andClause" + andCounter;
+		andCounter++;
+		return str;
+	}
+	
 
 	private void resetCounters() {
 		regCounter = 0;
@@ -114,6 +120,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		loopCounter = 0;
 		arrAllocCounter = 0;
 		oobCounter = 0;
+		andCounter = 0; 
 	}
 
 	private String getIType(String type) {
@@ -403,19 +410,11 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 * f3 -> ";"
 	 */
 	public Entry visit(AssignmentStatement n, String argu) throws Exception {
-
-
-		//String reg1 = n.f0.accept(this,argu).getName();
-		//String reg2 = n.f2.accept(this,argu).getName();
-
-		
-		
-		
-		
-		
-
-
-		return new Entry("", "");
+		Entry entry1 = n.f0.accept(this,"noload");
+		Entry entry2 = n.f2.accept(this,argu);
+		emit("\tstore " + entry2.getType() + " " + entry2.getName()
+		 		+ ", "	+ entry1.getType() + " " + entry1.getName());
+		return null;
 	}
 
 	/**
@@ -428,12 +427,28 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 * f6 -> ";"
 	 */
 	public Entry visit(ArrayAssignmentStatement n, String argu) throws Exception {
-
-
-
-
-
-		return new Entry("", "");
+		String reg = n.f0.accept(this,argu).getName();
+		String index = n.f2.accept(this,argu).getName();
+		String expression = n.f5.accept(this,null).getName();
+		String reg1 = getReg();
+		String reg2 = getReg();
+		String reg3 = getReg();
+		String reg4 = getReg();
+		String label1 = getOob();
+		String label2 = getOob();
+		String label3 = getOob();
+		
+		emit("\t" + reg1 + " = load i32, i32* " + reg + "\n"
+			+"\t" + reg2 + " = icmp ult i32 " + index + ", " + reg1 + "\n"
+			+"\tbr i1 " + reg2 + ", label %" + label1 + ", label %" + label2 + "\n\n"
+			+label1 + ":\n\t"
+			+ reg3 + " = add i32 " + index + ", 1\n"
+			+"\t" + reg4 + " = getelementptr i32, i32* " + reg + ", i32 " + reg3 + "\n"
+			+"\tstore i32 " + expression + ", i32* " + reg4 
+			+ "\n\tbr label %" + label3 + "\n"
+			+label2 + ":\ncall void @throw_oob()\nbr label %" + label3 + "\n");
+		
+		return null;
 	}
 
 	/**
@@ -446,12 +461,20 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 * f6 -> Statement()
 	 */
 	public Entry visit(IfStatement n, String argu) throws Exception {
-
-
-
-
-
-		return new Entry("", "");
+		String label1 = getIf();
+		String label2 = getIf();
+		String label3 = getIf();
+		String regExp = n.f2.accept(this,null).getName();
+		
+		emit("\tbr i1 " + regExp + ", label %" + label1 + ", label %" + label2 + "\n\n"
+				+label1 + ":\n");
+		n.f4.accept(this,argu);
+		emit("\tbr label %" + label3 + "\n\n"
+				+label2 + ":\n");
+		n.f6.accept(this,argu);
+		emit("\tbr label %" + label3 + "\n\n"
+				+label3 + ":\n");
+		return null;
 	}
 
 
@@ -463,12 +486,22 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 * f4 -> Statement()
 	 */
 	public Entry visit(WhileStatement n, String argu) throws Exception {
+		String label1 = getLoop();
+		String label2 = getLoop();
+		String label3 = getLoop();
 
+		emit("\tbr label %" + label1 + "\n\n"
+				+label1 + ":\n");
 
+		String regExp = n.f2.accept(this,argu).getName();
+		
+		emit("\tbr i1 " + regExp + ", label %" + label2 + ", label %" + label3 + "\n\n"
+				+label2 + ":\n");
+		n.f4.accept(this,argu);
+		emit("\tbr label %" + label1 + "\n\n"
+				+label3 + ":\n");
 
-
-
-		return new Entry("", "");
+		return null;
 	}
 
 	/**
@@ -481,11 +514,15 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	public Entry visit(PrintStatement n, String argu) throws Exception {
 
 		Entry entry = n.f2.accept(this,null);
+		String reg = entry.getName();
+		//for boolean
 		if(entry.getType().equals("i1")) {
-			
-		}else {
-			emit("call void (i32) @print_int(i32 " + entry.getName() + ")");
+			String reg1 = getReg();
+			emit("\t" + reg1 + " = zext i1 " + reg + " to i32\n");
+			reg = reg1;
 		}
+		emit("\tcall void (i32) @print_int(i32 " + reg + ")\n");
+		
 		return null;
 	}
 
@@ -512,12 +549,27 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 * f2 -> Clause()
 	 */
 	public Entry visit(AndExpression n, String argu) throws Exception {
+		String label1 = getAnd();
+		String label2 = getAnd();
+		String label3 = getAnd();
+		String label4 = getAnd();
+		String reg = getReg();
+		
+		String clause1 = n.f0.accept(this,null).getName();
+		
+		emit("\tbr label %" + label1 + "\n\n"
+				+label1 + ":\n"
+				+"\tbr i1 " + clause1 + ", label %" + label2 + ", label %" + label4 +"\n\n"
+				+label2 + ":\n");
+		
+		String clause2 = n.f2.accept(this,null).getName();
+		
+		emit("\tbr label %" + label3 + "\n\n"
+				+label3 + ":\n\tbr label %" + label4 + "\n\n"
+				+label4 + ":\n\t" + reg + " = phi i1 [ 0, %" + label1
+				+ " ], [ " + clause2 + ", %" + label3 + " ]\n");
 
-
-
-
-
-		return new Entry("", "");
+		return new Entry(reg, "i1");
 	}
 
 	/**
@@ -527,8 +579,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(CompareExpression n, String argu) throws Exception {
 		String reg = getReg();
-		emit(reg + " = icmp slt i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
-
+		emit("\t" + reg + " = icmp slt i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
 		return new Entry(reg, "i1");
 	}
 
@@ -539,8 +590,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(PlusExpression n, String argu) throws Exception {
 		String reg = getReg();
-		emit(reg + " = add i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
-
+		emit("\t" + reg + " = add i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
 		return new Entry(reg, "i32");
 	}
 
@@ -551,8 +601,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(MinusExpression n, String argu) throws Exception {
 		String reg = getReg();
-		emit(reg + " = sub i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
-
+		emit("\t" + reg + " = sub i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
 		return new Entry(reg, "i32");
 	}
 
@@ -564,8 +613,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(TimesExpression n, String argu) throws Exception {
 		String reg = getReg();
-		emit(reg + " = mul i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
-
+		emit("\t" + reg + " = mul i32 " + n.f0.accept(this,null).getName() + ", " + n.f2.accept(this,null).getName());
 		return new Entry(reg, "i32");
 	}
 
@@ -589,18 +637,18 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		String label3 = getOob();
 		
 		
-		emit(reg1 + " = load i32, i32* " + reg + "\n"
-			+reg2 + " = icmp ult i32 " + index + ", " + reg1 + "\n"
-			+"br i1 " + reg2 + ", label %" + label1 + ", label %" + label2 + "\n"
-			+"\n" + label1 + ":\n" + reg3 + " = add i32 " + index + ", 1\n"
-			+reg4 + " = getelementptr i32, i32* " + reg + ", i32 " + reg3 + "\n");
+		emit("\t" + reg1 + " = load i32, i32* " + reg + "\n"
+			+"\t" + reg2 + " = icmp ult i32 " + index + ", " + reg1 + "\n"
+			+"\tbr i1 " + reg2 + ", label %" + label1 + ", label %" + label2 + "\n\n"
+			+label1 + ":\n\t" + reg3 + " = add i32 " + index + ", 1\n"
+			+"\t" + reg4 + " = getelementptr i32, i32* " + reg + ", i32 " + reg3 + "\n");
 		String type = "i32*";
 		if(argu==null || !argu.equals("noload")) {
-			emit(reg5 + " = load i32, i32* " + reg4 + "\n");
+			emit("\t" + reg5 + " = load i32, i32* " + reg4 + "\n");
 			reg4 = reg5;
 			type = "i32";
 		}
-		emit("br label %" + label3 + "\n"
+		emit("\tbr label %" + label3 + "\n"
 			+label2 + ":\ncall void @throw_oob()\nbr label %" + label3 + "\n");
 		
 		return new Entry(reg4, type);
@@ -614,7 +662,6 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(ArrayLength n, String argu) throws Exception {
 		String reg = n.f0.accept(this,argu).getName();
-		
 		return new Entry(reg,"i32");
 	}
 
@@ -649,11 +696,11 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		
 		reg1 = n.f0.accept(this,argu).getName();		
 		
-		emit(reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
-			+reg3 + " = load i8**, i8*** " + reg2 + "\n"
-			+reg4 + " = getelementptr i8*, i8** " + reg3 + ", i32 " + func.getOffset()/8 + "\n"
-			+reg5 + " = load i8*, i8** " + reg4 + "\n"
-			+reg6 + " = bitcast i8* " + reg5 + " to " + this.getIType(func.getType()) + " (i8*");
+		emit("\t" + reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
+			+"\t" + reg3 + " = load i8**, i8*** " + reg2 + "\n"
+			+"\t" + reg4 + " = getelementptr i8*, i8** " + reg3 + ", i32 " + func.getOffset()/8 + "\n"
+			+"\t" + reg5 + " = load i8*, i8** " + reg4 + "\n"
+			+"\t" + reg6 + " = bitcast i8* " + reg5 + " to " + this.getIType(func.getType()) + " (i8*");
 		String types="";
 		for(Entry arg: func.getArguments()) {
 			types += this.getIType(arg.getType()) + " ";
@@ -666,7 +713,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 			buffer = n.f4.accept(this,argu).getName();
 		if (buffer == null) buffer = "";
 		typeStack.pop();
-		emit(reg7 + " = call " + this.getIType(func.getType()) + " " + reg6 + "(i8* " + reg1 + buffer + ")\n");
+		emit("\t" + reg7 + " = call " + this.getIType(func.getType()) + " " + reg6 + "(i8* " + reg1 + buffer + ")\n");
 
 		return new Entry(reg7,this.getIType(func.getType()));
 	}
@@ -779,11 +826,11 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 			String reg3 = getReg();
 			type = this.getIType(this.currentClassContent.getVariableEntry(name).getType());
 			int offset = this.currentClassContent.getVariableEntry(name).getOffset() + 8;
-			emit(reg1 + " = getelementptr i8, i8* %this, i32 " + offset + "\n"
-				+reg2 + " = bitcast i8* " + reg1 + " to " + type + "*\n");
+			emit("\t" + reg1 + " = getelementptr i8, i8* %this, i32 " + offset + "\n"
+				+"\t" + reg2 + " = bitcast i8* " + reg1 + " to " + type + "*\n");
 			if(argu!=null && argu.equals("noload"))
 				return new Entry(reg2,type+"*");
-			emit(reg3 + " = load " + type + ", " + type + "* " + reg2 + "\n");
+			emit("\t" + reg3 + " = load " + type + ", " + type + "* " + reg2 + "\n");
 			reg = reg3;
 		}
 		else {
@@ -791,7 +838,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 			String reg1 = getReg();
 			if(argu!=null && argu.equals("noload"))
 				return new Entry(reg,type+"*");
-			emit(reg1 + " = load " + type + ", " + type + "* " + reg + "\n");
+			emit("\t" + reg1 + " = load " + type + ", " + type + "* " + reg + "\n");
 			reg = reg1;
 		}
 		return new Entry(reg,type);
@@ -820,14 +867,14 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		String arrAlloc1 = getArrAlloc();
 		String arrAlloc2 = getArrAlloc();
 
-		emit(reg1 + " = load i32, i32* " + n.f3.accept(this,argu).getName() + "\n"
-				+reg2 + " = icmp slt i32 " + reg1 + ", 0\n"
-				+"br i1 " + reg2 + ", label %" + arrAlloc1 + ", label %" + arrAlloc2 + "\n\n"
-				+arrAlloc1 + ":\ncall void @throw_oob()\nbr label %" + arrAlloc2 + "\n\n"
-				+arrAlloc2 + ":\n" + reg3 + " = add i32 " + reg1 + ", 1\n"
-				+reg4 + " = call i8* @calloc(i32 4, i32 " + reg3 + ")\n"
-				+reg5 + " = bitcast i8* " + reg4 + " to i32*\n"
-				+"store i32 " + reg1 + ", i32* " + reg5 + "\n");
+		emit("\t" + reg1 + " = load i32, i32* " + n.f3.accept(this,argu).getName() + "\n"
+			+"\t" + reg2 + " = icmp slt i32 " + reg1 + ", 0\n"
+			+"\tbr i1 " + reg2 + ", label %" + arrAlloc1 + ", label %" + arrAlloc2 + "\n\n"
+			+arrAlloc1 + ":\ncall void @throw_oob()\nbr label %" + arrAlloc2 + "\n\n"
+			+arrAlloc2 + ":\n" + reg3 + " = add i32 " + reg1 + ", 1\n"
+			+"\t" + reg4 + " = call i8* @calloc(i32 4, i32 " + reg3 + ")\n"
+			+"\t" + reg5 + " = bitcast i8* " + reg4 + " to i32*\n"
+			+"\tstore i32 " + reg1 + ", i32* " + reg5 + "\n");
 
 		return new Entry(reg5,"i32*");
 	}
@@ -845,11 +892,11 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 		String identifier = n.f1.f0.toString();
 		int numOfFuncs = symbolTable.getClassContent(identifier).getFuncTable().size();
 
-		emit(reg1 + " = call i8* @calloc(i32 1, i32 " + getClassSize(identifier) + ")\n"
-				+reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
-				+reg3 + " = getelementptr [" + numOfFuncs + " x i8*], [" + numOfFuncs
-				+" x i8*]* @." + identifier + "_vtable, i32 0, i32 0\n"
-				+"store i8** " + reg3 + ",i8*** " + reg2 + "\n");
+		emit("\t" + reg1 + " = call i8* @calloc(i32 1, i32 " + getClassSize(identifier) + ")\n"
+			+"\t" + reg2 + " = bitcast i8* " + reg1 + " to i8***\n"
+			+"\t" + reg3 + " = getelementptr [" + numOfFuncs + " x i8*], [" + numOfFuncs
+			+" x i8*]* @." + identifier + "_vtable, i32 0, i32 0\n"
+			+"\t" + "store i8** " + reg3 + ",i8*** " + reg2 + "\n");
 
 		return new Entry(reg1,"i8*");
 	}
@@ -860,7 +907,7 @@ public class LLVMVisitor extends GJDepthFirst<Entry, String> {
 	 */
 	public Entry visit(NotExpression n, String argu) throws Exception {
 		String reg = getReg();
-		emit(reg + " = xor i1 1, " + n.f1.accept(this,argu).getName());
+		emit("\t" + reg + " = xor i1 1, " + n.f1.accept(this,argu).getName());
 		return new Entry(reg,"i1");
 	}
 
