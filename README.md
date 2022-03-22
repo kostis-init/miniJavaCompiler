@@ -1,5 +1,5 @@
-# miniJava Compiler
+# miniJava compiler
 
-Implementation of a miniJava compiler in Java, that produces code in LLVM format. 
+Implementation of a compiler in Java, that compiles miniJava code and produces LLVM files. 
 
-### Compilers course in DIT @ NKUA, 2019.
+### Implemented as an assignment for the course of Compilers in DIT @ University of Athens (2019).
