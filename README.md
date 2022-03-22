@@ -1,4 +1,5 @@
-# miniJavaCompiler
-Compilers Project for DIT (UoA)
+# miniJava Compiler
 
-A miniJava compiler project, that produces code in LLVM format, for DIT class of Compilers 2019
+Implementation of a miniJava compiler in Java, that produces code in LLVM format. 
+
+### Compilers course in DIT @ NKUA, 2019.
